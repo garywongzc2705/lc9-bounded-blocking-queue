@@ -20,22 +20,22 @@ class BoundedBlockingQueue:
     def __init__(self, capacity: int) -> None:
         self.capacity = capacity
         self.q = deque()
-        self.lock = threading.Lock()
+        self.condition = threading.Condition()
 
     def put(self, item):
-        while True:
-            with self.lock:
-                if len(self.q) < self.capacity:
-                    self.q.append(item)
-                    return
-            time.sleep(0.2)
+        with self.condition:
+            while self.is_full():
+                self.condition.wait()
+            self.q.append(item)
+            self.condition.notify_all()
 
     def take(self):
-        while True:
-            with self.lock:
-                if len(self.q) > 0:
-                    return self.q.popleft()
-            time.sleep(0.2)
+        with self.condition:
+            while self.is_empty():
+                self.condition.wait()
+            val = self.q.popleft()
+            self.condition.notify_all()
+            return val
 
     def size(self):
         return len(self.q)

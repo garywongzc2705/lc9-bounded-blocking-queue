@@ -22,20 +22,45 @@ class BoundedBlockingQueue:
         self.q = deque()
         self.condition = threading.Condition()
 
-    def put(self, item):
+    def put(self, item, timeout=None):
         with self.condition:
-            while self.is_full():
-                self.condition.wait()
-            self.q.append(item)
-            self.condition.notify_all()
+            if timeout is None:
+                while self.is_full():
+                    self.condition.wait()
+            else:
+                deadline = time.time() + max(0, timeout)
+                while self.is_full():
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        return False
 
-    def take(self):
+                    self.condition.wait(remaining)
+
+            self.q.append(item)
+            print(self.q)
+            self.condition.notify_all()
+            return True
+
+    def take(self, timeout=None):
         with self.condition:
-            while self.is_empty():
-                self.condition.wait()
+            if timeout is None:
+                while self.is_empty():
+                    self.condition.wait()
+            else:
+                deadline = time.time() + max(0, timeout)
+                while self.is_empty():
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        return None
+                    self.condition.wait(remaining)
             val = self.q.popleft()
             self.condition.notify_all()
             return val
+
+    def peek(self):
+        if self.is_empty():
+            return None
+        return self.q[0]
 
     def size(self):
         return len(self.q)
